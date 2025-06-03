@@ -1,0 +1,2 @@
+# tsksc2json
+Windowsのタスクスケジュールをjson形式で出力
