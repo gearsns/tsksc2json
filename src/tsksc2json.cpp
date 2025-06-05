@@ -13,66 +13,53 @@
 
 #pragma comment( lib, "taskschd" )
 //
-static std::string join(std::vector<std::string>& strings, const std::string& delim)
+static std::wstring join(std::vector<std::wstring>& strings, const std::wstring& delim)
 {
     return std::accumulate(strings.begin() + 1, strings.end(), strings[0],
-        [&delim](const std::string& x, const std::string& y) {
+        [&delim](const std::wstring& x, const std::wstring& y) {
             return x.empty() ? y : x + delim + y;
         });
 }
-static std::string bstr_to_utf8(BSTR bstr)
+static std::wstring bstr_to_string(BSTR bstr)
 {
     _bstr_t b(bstr);
-    return std::string((const char*)b);
+    return std::wstring((const wchar_t*)b);
 }
-/*
-static std::string bstr_to_utf8(const std::wstring& wstr)
-{
-    if (wstr.empty())
-    {
-        return "";
-    }
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::string result(size_needed - 1, 0); // -1 to remove null terminator
-    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, result.data(), size_needed, nullptr, nullptr);
-    return result;
-}
-*/
-static std::string time_to_string(const DATE& date)
+static std::wstring time_to_string(const DATE& date)
 {
     SYSTEMTIME st;
     VariantTimeToSystemTime(date, &st);
-    char buffer[32];
-    sprintf_s(buffer, "%04d/%02d/%02d %02d:%02d:%02d",
+    wchar_t buffer[32];
+    swprintf_s(buffer, L"%04d/%02d/%02d %02d:%02d:%02d",
         st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
     return buffer;
 }
-static std::string escape_string(std::string str)
+static std::wstring escape_string(std::wstring str)
 {
-    std::string ret = std::regex_replace(str, std::regex("(\\\\|\")"), "\\$1");
-    ret = std::regex_replace(ret, std::regex("(\r\n|\r|\n)"), "\\n");
-    return "\"" + ret + "\"";
+    std::wstring ret = std::regex_replace(str, std::wregex(L"(\\\\|\")"), L"\\$1");
+    ret = std::regex_replace(ret, std::wregex(L"(\r\n|\r|\n)"), L"\\n");
+    return L"\"" + ret + L"\"";
 }
-static std::string escape_string(BSTR str)
+static std::wstring escape_string(BSTR str)
 {
-    return escape_string(bstr_to_utf8(str));
+    return escape_string(bstr_to_string(str));
 }
-static std::string escape_string(DATE date)
+static std::wstring escape_string(DATE date)
 {
     return escape_string(time_to_string(date));
 }
-static void add_params(std::vector<std::string>& params, std::vector<std::string>& sub_params, std::string indent, std::string name = "")
+static void add_params(std::vector<std::wstring>& params, std::vector<std::wstring>& sub_params, std::wstring indent, std::wstring name = L"")
 {
     if (sub_params.size() > 0)
     {
-        params.push_back(std::format("{}{{\n {}{}\n{}}}", name.empty() ? indent : name, indent, join(sub_params, std::format(",\n {}", indent)), indent));
+        params.push_back(std::format(L"{}{{\n {}{}\n{}}}", name.empty() ? indent : name, indent, join(sub_params, std::format(L",\n {}", indent)), indent));
     }
 }
-static void output_params(std::vector<std::string>& params, std::string name)
+static void output_params(std::vector<std::wstring>& params, std::wstring name)
 {
     if (params.size() > 0)
     {
-        std::cout << ",\n \"" << name << "\": [\n" << join(params, ",\n") << "\n ]";
+        std::wcout << L",\n \"" << name << L"\": [\n" << join(params, L",\n") << L"\n ]";
     }
 }
 //
@@ -85,7 +72,7 @@ static void extract_registration_info(ITaskDefinition* taskdef)
     }
     if (BSTR desc; SUCCEEDED(info->get_Description(&desc)) && desc)
     {
-        std::cout << ",\n \"Description\": " << escape_string(desc);
+        std::wcout << L",\n \"Description\": " << escape_string(desc);
     }
 }
 static void extract_actions(ITaskDefinition* taskdef)
@@ -98,7 +85,7 @@ static void extract_actions(ITaskDefinition* taskdef)
     {
         return;
     }
-    std::vector<std::string> actions_params;
+    std::vector<std::wstring> actions_params;
     for (LONG i = 1; i <= count; ++i)
     {
         CComPtr<IAction> action;
@@ -111,22 +98,22 @@ static void extract_actions(ITaskDefinition* taskdef)
         {
             continue;
         }
-        std::vector<std::string> action_params;
+        std::vector<std::wstring> action_params;
         if (BSTR cmd; SUCCEEDED(exec->get_Path(&cmd)) && cmd)
         {
-            action_params.push_back(std::format("\"Command\": {}", escape_string(cmd)));
+            action_params.push_back(std::format(L"\"Command\": {}", escape_string(cmd)));
         }
         if (BSTR args; SUCCEEDED(exec->get_Arguments(&args)) && args)
         {
-            action_params.push_back(std::format("\"Arguments\": {}", escape_string(args)));
+            action_params.push_back(std::format(L"\"Arguments\": {}", escape_string(args)));
         }
         if (BSTR dir; SUCCEEDED(exec->get_WorkingDirectory(&dir)) && dir)
         {
-            action_params.push_back(std::format("\"WorkingDirectory\": {}", escape_string(dir)));
+            action_params.push_back(std::format(L"\"WorkingDirectory\": {}", escape_string(dir)));
         }
-        add_params(actions_params, action_params, "  ");
+        add_params(actions_params, action_params, L"  ");
     }
-    output_params(actions_params, "Actions");
+    output_params(actions_params, L"Actions");
 }
 //
 static void extract_triggers(ITaskDefinition* taskdef)
@@ -139,7 +126,7 @@ static void extract_triggers(ITaskDefinition* taskdef)
     {
         return;
     }
-    std::vector<std::string> triggers_params;
+    std::vector<std::wstring> triggers_params;
     for (LONG i = 1; i <= count; ++i)
     {
         CComPtr<ITrigger> trigger;
@@ -147,14 +134,14 @@ static void extract_triggers(ITaskDefinition* taskdef)
         {
             continue;
         }
-        std::vector<std::string> trigger_params;
+        std::vector<std::wstring> trigger_params;
         if (BSTR start; SUCCEEDED(trigger->get_StartBoundary(&start)) && start)
         {
-            trigger_params.push_back(std::format("\"StartBoundary\": {}", escape_string(start)));
+            trigger_params.push_back(std::format(L"\"StartBoundary\": {}", escape_string(start)));
         }
         if (VARIANT_BOOL enabled; SUCCEEDED(trigger->get_Enabled(&enabled)))
         {
-            trigger_params.push_back(std::format("\"Enabled\": {}", enabled == VARIANT_TRUE));
+            trigger_params.push_back(std::format(L"\"Enabled\": {}", enabled == VARIANT_TRUE));
         }
         if (TASK_TRIGGER_TYPE2 ttype; SUCCEEDED(trigger->get_Type(&ttype)))
         {
@@ -165,42 +152,42 @@ static void extract_triggers(ITaskDefinition* taskdef)
                 {
                     if (SHORT interval; SUCCEEDED(daily->get_DaysInterval(&interval)))
                     {
-                        trigger_params.push_back(std::format("\"ScheduleByDay\": {{ \"DaysInterval\":{} }}", interval));
+                        trigger_params.push_back(std::format(L"\"ScheduleByDay\": {{ \"DaysInterval\":{} }}", interval));
                     }
                 }
                 break;
             case TASK_TRIGGER_WEEKLY: // Weekly
                 if (CComPtr<IWeeklyTrigger> weekly; SUCCEEDED(trigger->QueryInterface(IID_IWeeklyTrigger, (void**)&weekly)))
                 {
-                    std::vector<std::string> weekly_params;
+                    std::vector<std::wstring> weekly_params;
                     if (SHORT interval; SUCCEEDED(weekly->get_WeeksInterval(&interval)))
                     {
-                        weekly_params.push_back(std::format("\"WeeksInterval\": {}", interval));
+                        weekly_params.push_back(std::format(L"\"WeeksInterval\": {}", interval));
                     }
                     if (short daysOfWeek; SUCCEEDED(weekly->get_DaysOfWeek(&daysOfWeek)))
                     {
-                        weekly_params.push_back(std::format("\"DaysOfWeek\": {}", daysOfWeek));
+                        weekly_params.push_back(std::format(L"\"DaysOfWeek\": {}", daysOfWeek));
                     }
-                    add_params(trigger_params, weekly_params, "   ", "\"ScheduleByWeek\": ");
+                    add_params(trigger_params, weekly_params, L"   ", L"\"ScheduleByWeek\": ");
                 }
                 break;
             case TASK_TRIGGER_MONTHLY: // Monthly
                 if (CComPtr<IMonthlyTrigger> monthly; SUCCEEDED(trigger->QueryInterface(IID_IMonthlyTrigger, (void**)&monthly)))
                 {
-                    std::vector<std::string> monthly_params;
+                    std::vector<std::wstring> monthly_params;
                     if (long days; SUCCEEDED(monthly->get_DaysOfMonth(&days)))
                     {
-                        monthly_params.push_back(std::format("\"Days\": {}", days));
+                        monthly_params.push_back(std::format(L"\"Days\": {}", days));
                     }
                     if (short months; SUCCEEDED(monthly->get_MonthsOfYear(&months)))
                     {
-                        monthly_params.push_back(std::format("\"Months\": {}", months));
+                        monthly_params.push_back(std::format(L"\"Months\": {}", months));
                     }
                     if (VARIANT_BOOL lastDay = VARIANT_FALSE; SUCCEEDED(monthly->get_RunOnLastDayOfMonth(&lastDay)) && lastDay == VARIANT_TRUE)
                     {
-                        monthly_params.push_back("\"RunOnLastDayOfMonth\": true");
+                        monthly_params.push_back(L"\"RunOnLastDayOfMonth\": true");
                     }
-                    add_params(trigger_params, monthly_params, "   ", "\"ScheduleByMonth\": ");
+                    add_params(trigger_params, monthly_params, L"   ", L"\"ScheduleByMonth\": ");
                 }
                 break;
             }
@@ -208,27 +195,27 @@ static void extract_triggers(ITaskDefinition* taskdef)
         // Repetition
         if (CComPtr<IRepetitionPattern> rep; SUCCEEDED(trigger->get_Repetition(&rep)) && rep)
         {
-            std::vector<std::string> repetition_params;
+            std::vector<std::wstring> repetition_params;
             if (BSTR interval; SUCCEEDED(rep->get_Interval(&interval)) && interval)
             {
-                repetition_params.push_back(std::format("\"Interval\": {}", escape_string(interval)));
+                repetition_params.push_back(std::format(L"\"Interval\": {}", escape_string(interval)));
             }
             if (BSTR duration; SUCCEEDED(rep->get_Duration(&duration)) && duration)
             {
-                repetition_params.push_back(std::format("\"Duration\": {}", escape_string(duration)));
+                repetition_params.push_back(std::format(L"\"Duration\": {}", escape_string(duration)));
             }
             if (VARIANT_BOOL stop; SUCCEEDED(rep->get_StopAtDurationEnd(&stop)) && (stop == VARIANT_TRUE))
             {
-                repetition_params.push_back("\"StopAtDurationEnd\": true");
+                repetition_params.push_back(L"\"StopAtDurationEnd\": true");
             }
-            add_params(trigger_params, repetition_params, "   ", "\"Repetition\": ");
+            add_params(trigger_params, repetition_params, L"   ", L"\"Repetition\": ");
         }
-        add_params(triggers_params, trigger_params, "  ");
+        add_params(triggers_params, trigger_params, L"  ");
     }
-    output_params(triggers_params, "Triggers");
+    output_params(triggers_params, L"Triggers");
 }
 //
-static void task_info(CComPtr<IRegisteredTask> &task, const std::string& path)
+static void task_info(CComPtr<IRegisteredTask> &task, const std::wstring& path)
 {
     BSTR name;
     TASK_STATE state;
@@ -241,14 +228,14 @@ static void task_info(CComPtr<IRegisteredTask> &task, const std::string& path)
         && SUCCEEDED(task->get_LastTaskResult(&result))
         )
     {
-        std::cout
-            << "{\n"
-            << " \"TaskPath\": " << escape_string(path) << ",\n"
-            << " \"TaskName\": " << escape_string(name) << ",\n"
-            << " \"State\": " << static_cast<int>(state) << ",\n"
-            << " \"LastRunTime\": " << escape_string(lastRun) << ",\n"
-            << " \"NextRunTime\": " << escape_string(nextRun) << ",\n"
-            << " \"LastResult\": " << result
+        std::wcout
+            << L"{\n"
+            << L" \"TaskPath\": " << escape_string(path) << L",\n"
+            << L" \"TaskName\": " << escape_string(name) << L",\n"
+            << L" \"State\": " << static_cast<int>(state) << L",\n"
+            << L" \"LastRunTime\": " << escape_string(lastRun) << L",\n"
+            << L" \"NextRunTime\": " << escape_string(nextRun) << L",\n"
+            << L" \"LastResult\": " << result
             ;
         if (ITaskDefinition* taskdef; SUCCEEDED(task->get_Definition(&taskdef)) && taskdef)
         {
@@ -256,14 +243,14 @@ static void task_info(CComPtr<IRegisteredTask> &task, const std::string& path)
             extract_actions(taskdef);
             extract_triggers(taskdef);
         }
-        std::cout << "\n}";
+        std::wcout << L"\n}";
     }
     else
     {
-        std::cout << "{ " << " \"TaskPath\": " << escape_string(path) << "}\n"; // Error
+        std::wcout << L"{  \"TaskPath\": " << escape_string(path) << L"}\n"; // Error
     }
 }
-static int enumerate_tasks_in_folder(ITaskFolder* folder, const std::string& path, const int in_element_count = 0)
+static int enumerate_tasks_in_folder(ITaskFolder* folder, const std::wstring& path, const int in_element_count = 0)
 {
     CComPtr<IRegisteredTaskCollection> tasks;
     if (FAILED(folder->GetTasks(TASK_ENUM_HIDDEN, &tasks)) || !tasks)
@@ -271,15 +258,15 @@ static int enumerate_tasks_in_folder(ITaskFolder* folder, const std::string& pat
         return 0;
     }
     int element_count = in_element_count;
-    char del_str = element_count == 0 ? '[' : ',';
+    std::wstring del_str = element_count == 0 ? L"[" : L",";
     if (LONG count; SUCCEEDED(tasks->get_Count(&count)))
     {
         for (LONG i = 1; i <= count; ++i)
         {
             if (CComPtr<IRegisteredTask> task; SUCCEEDED(tasks->get_Item(_variant_t(i), &task)) && task)
             {
-                std::cout << del_str;
-                del_str = ',';
+                std::wcout << del_str;
+                del_str = L",";
                 task_info(task, path);
                 ++element_count;
             }
@@ -296,7 +283,7 @@ static int enumerate_tasks_in_folder(ITaskFolder* folder, const std::string& pat
                 {
                     if (BSTR subPath; SUCCEEDED(subfolder->get_Path(&subPath)) && subPath)
                     {
-                        element_count += enumerate_tasks_in_folder(subfolder, bstr_to_utf8(subPath), element_count);
+                        element_count += enumerate_tasks_in_folder(subfolder, bstr_to_string(subPath), element_count);
                     }
                 }
             }
@@ -304,19 +291,19 @@ static int enumerate_tasks_in_folder(ITaskFolder* folder, const std::string& pat
     }
     if (element_count == 0)
     {
-        std::cout << "[]\n";
+        std::wcout << L"[]\n";
     }
     else if (in_element_count == 0)
     {
-        std::cout << "]\n";
+        std::wcout << L"]\n";
     }
     return element_count;
 }
 //
-int main(int argc, char* argv[])
+int wmain(int argc, wchar_t* argv[])
 {
     std::locale::global(std::locale(""));
-    std::string rootPath = "\\";  // デフォルトルート
+    std::wstring rootPath = L"\\";  // デフォルトルート
     if (argc > 1)
     {
         rootPath = argv[1];
@@ -331,16 +318,14 @@ int main(int argc, char* argv[])
         CoUninitialize();
         return EXIT_FAILURE;
     }
-    UINT saveCP = GetConsoleOutputCP();
-    SetConsoleOutputCP(CP_UTF8);
     if (CComPtr<ITaskService> service;
         SUCCEEDED(service.CoCreateInstance(CLSID_TaskScheduler))
         && SUCCEEDED(service->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t()))
         )
     {
-        //std::ofstream writing_file("test.json", std::ios::out | std::ios::binary);
-        //auto strbuf = std::cout.rdbuf(writing_file.rdbuf());
-        if (rootPath.at(rootPath.size() - 1) == '\\')
+        //std::wofstream writing_file(L"test.json", std::ios::out | std::ios::binary);
+        //auto strbuf = std::wcout.rdbuf(writing_file.rdbuf());
+        if (rootPath.at(rootPath.size() - 1) == L'\\')
         {
             if (rootPath.size() > 1)
             {
@@ -351,22 +336,21 @@ int main(int argc, char* argv[])
                 enumerate_tasks_in_folder(root, rootPath);
             }
         }
-        else if (std::smatch m; std::regex_match(rootPath, m, std::regex("^(.*)\\\\(.*)$")))
+        else if (std::wsmatch m; std::regex_match(rootPath, m, std::wregex(L"^(.*)\\\\(.*)$")))
         {
-            std::string path = m[1].str();
-            std::string name = m[2].str();
+            std::wstring path = m[1].str();
+            std::wstring name = m[2].str();
             if (CComPtr<ITaskFolder> root; SUCCEEDED(service->GetFolder(_bstr_t(path.c_str()), &root)) && root)
             {
                 if (CComPtr<IRegisteredTask> task; SUCCEEDED(root->GetTask(_bstr_t(name.c_str()), &task)) && task)
                 {
-                    std::cout << "[";
+                    std::wcout << L"[";
                     task_info(task, path);
-                    std::cout << "]\n";
+                    std::wcout << L"]\n";
                 }
             }
         }
-        //std::cout.rdbuf(strbuf);
+        //std::wcout.rdbuf(strbuf);
     }
     CoUninitialize();
-    SetConsoleOutputCP(saveCP);
 }
