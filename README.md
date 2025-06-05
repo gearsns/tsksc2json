@@ -31,3 +31,20 @@ tskc2json \タスフォルダ\
 ```bash
 tskc2json \タスフォルダ\タスク名
 ```
+
+## PowerShell版
+全てのタスクを出力
+```bash
+.\Export-ScheduledTasks.ps1
+```
+
+特定のフォルダ以下を出力
+※末尾を\で終了
+```bash
+.\Export-ScheduledTasks.ps1 \タスフォルダ\
+```
+
+特定のタスクのみを出力
+```bash
+.\Export-ScheduledTasks.ps1 \タスフォルダ\タスク名
+```
